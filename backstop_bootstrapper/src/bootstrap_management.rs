@@ -37,7 +37,7 @@ pub fn execute_start_bootstrap(
     );
     assert_with_error!(
         e,
-        duration >= 1,
+        duration >= storage::ONE_DAY_LEDGERS,
         BackstopBootstrapperError::DurationTooShort
     );
     assert_with_error!(

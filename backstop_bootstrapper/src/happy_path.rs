@@ -39,10 +39,11 @@ fn test_bootstrapper() {
     let (usdc, usdc_client) = testutils::create_usdc_token(&e, &bootstrapper, &bombadil);
     e.budget().reset_unlimited();
     let (backstop_token, _) = testutils::create_comet_lp_pool(&e, &bombadil, &blnd, &usdc);
-    testutils::setup_backstop(&e, &pool_address, &backstop, &backstop_token, &usdc, &blnd);
+    let pool_factory =
+        testutils::setup_backstop(&e, &pool_address, &backstop, &backstop_token, &usdc, &blnd);
     let bootstrap_client = BootstrapClient::new(&e, &bootstrapper);
     // init
-    bootstrap_client.initialize(&backstop, &backstop_token);
+    bootstrap_client.initialize(&backstop, &backstop_token, &pool_factory);
     // create bootstrap
     let bootstrap_amount = 100 * SCALAR_7;
     blnd_client.mint(&frodo, &(bootstrap_amount * 2));
