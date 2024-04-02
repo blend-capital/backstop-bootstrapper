@@ -33,6 +33,8 @@ pub trait BackstopBootstrapper {
     /// # Arguments
     /// * `from` - The address of the user joining the bootstrap
     /// * `amount` - The amount of tokens to join with
+    /// * `bootstrapper` - The address of the bootstrap initiator
+    /// * `bootstrap_id` - The id of the bootstrap event
     fn join(e: Env, from: Address, amount: i128, bootstrapper: Address, bootstrap_id: u32);
 
     /// Exits a Bootstrap Event with a given amount of pair tokens
@@ -40,6 +42,8 @@ pub trait BackstopBootstrapper {
     /// # Arguments
     /// * `from` - The address of the user Exiting the bootstrap
     /// * `amount` - The amount of tokens to exit with
+    /// * `bootstrapper` - The address of the bootstrap initiator
+    /// * `bootstrap_id` - The id of the bootstrap event
     fn exit(e: Env, from: Address, amount: i128, bootstrapper: Address, bootstrap_id: u32);
 
     /// Close the bootstrap event

@@ -72,6 +72,12 @@ pub fn execute_join(
     bootstrap_id: u32,
 ) {
     let mut bootstrap = Bootstrap::load(e, bootstrapper, bootstrap_id);
+    // joins are disables if the bootstrap has ended
+    assert_with_error!(
+        e,
+        e.ledger().sequence() < bootstrap.close_ledger,
+        BackstopBootstrapperError::BootstrapNotActiveError
+    );
     // deposit the pair token into the contract
     TokenClient::new(&e, &bootstrap.pair_token_address).transfer(
         &from,
@@ -96,6 +102,12 @@ pub fn execute_exit(
     bootstrap_id: u32,
 ) {
     let mut bootstrap = Bootstrap::load(e, bootstrapper, bootstrap_id);
+    // exits are disables if the bootstrap has ended
+    assert_with_error!(
+        e,
+        e.ledger().sequence() < bootstrap.close_ledger,
+        BackstopBootstrapperError::BootstrapNotActiveError
+    );
     // update bootstrap deposits
     let current_deposit = bootstrap.deposits.get(from.clone()).unwrap_or_else(|| 0);
     assert_with_error!(
@@ -960,6 +972,89 @@ mod tests {
             assert_eq!(bootstrap_balance, join_amount + join_2_amount);
         })
     }
+    #[test]
+    #[should_panic(expected = "HostError: Error(Contract, #105)")]
+    fn test_join_bootstrap_not_active() {
+        let e = Env::default();
+        e.mock_all_auths_allowing_non_root_auth();
+        e.ledger().set(LedgerInfo {
+            timestamp: 600,
+            protocol_version: 20,
+            sequence_number: 1234,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 2000000,
+        });
+        let bombadil = Address::generate(&e);
+        let frodo = Address::generate(&e);
+        let samwise = Address::generate(&e);
+        let merry = Address::generate(&e);
+        let pool_address = Address::generate(&e);
+        let bootstrapper = create_bootstrapper(&e);
+        let (backstop, _) = create_backstop(&e);
+        let (blnd, blnd_client) = create_blnd_token(&e, &bootstrapper, &bombadil);
+        let (usdc, usdc_client) = create_usdc_token(&e, &bootstrapper, &bombadil);
+        e.budget().reset_unlimited();
+        setup_bootstrapper(
+            &e,
+            &bootstrapper,
+            &pool_address,
+            &backstop,
+            &bombadil,
+            &blnd,
+            &usdc,
+        );
+        let bootstrap_amount = 1000 * SCALAR_7;
+        let join_amount = 100 * SCALAR_7;
+        let join_2_amount = 200 * SCALAR_7;
+        blnd_client.mint(&frodo, &(bootstrap_amount * 2));
+        usdc_client.mint(&samwise, &join_amount);
+        usdc_client.mint(&merry, &join_2_amount);
+        let pair_min = 1;
+        let duration = ONE_DAY_LEDGERS;
+        e.budget().reset_default();
+
+        e.as_contract(&bootstrapper, || {
+            storage::set_comet_token_data(
+                &e,
+                0,
+                TokenInfo {
+                    address: blnd.clone(),
+                    weight: 800_0000,
+                },
+            );
+            storage::set_comet_token_data(
+                &e,
+                1,
+                TokenInfo {
+                    address: usdc.clone(),
+                    weight: 200_0000,
+                },
+            );
+            execute_start_bootstrap(
+                &e,
+                frodo.clone(),
+                0,
+                bootstrap_amount,
+                pair_min,
+                duration,
+                pool_address.clone(),
+            );
+            e.ledger().set(LedgerInfo {
+                timestamp: 600,
+                protocol_version: 20,
+                sequence_number: 1234 + duration,
+                network_id: Default::default(),
+                base_reserve: 10,
+                min_temp_entry_ttl: 10,
+                min_persistent_entry_ttl: 10,
+                max_entry_ttl: 2000000,
+            });
+            execute_join(&e, &samwise, join_amount, frodo.clone(), 0);
+        })
+    }
 
     #[test]
     fn test_exit_bootstrap() {
@@ -1061,6 +1156,91 @@ mod tests {
             assert_eq!(merry_balance, join_2_amount / 2);
             let bootstrap_balance = usdc_client.balance(&bootstrapper);
             assert_eq!(bootstrap_balance, join_amount / 2 + join_2_amount / 2);
+        })
+    }
+    #[test]
+    #[should_panic(expected = "HostError: Error(Contract, #105)")]
+    fn test_exit_bootstrap_not_active() {
+        let e = Env::default();
+        e.mock_all_auths_allowing_non_root_auth();
+        e.ledger().set(LedgerInfo {
+            timestamp: 600,
+            protocol_version: 20,
+            sequence_number: 1234,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 2000000,
+        });
+        let bombadil = Address::generate(&e);
+        let frodo = Address::generate(&e);
+        let samwise = Address::generate(&e);
+        let merry = Address::generate(&e);
+        let pool_address = Address::generate(&e);
+        let bootstrapper = create_bootstrapper(&e);
+        let (backstop, _) = create_backstop(&e);
+        let (blnd, blnd_client) = create_blnd_token(&e, &bootstrapper, &bombadil);
+        let (usdc, usdc_client) = create_usdc_token(&e, &bootstrapper, &bombadil);
+        e.budget().reset_unlimited();
+        setup_bootstrapper(
+            &e,
+            &bootstrapper,
+            &pool_address,
+            &backstop,
+            &bombadil,
+            &blnd,
+            &usdc,
+        );
+        let bootstrap_amount = 1000 * SCALAR_7;
+        let join_amount = 100 * SCALAR_7;
+        let join_2_amount = 200 * SCALAR_7;
+        blnd_client.mint(&frodo, &(bootstrap_amount * 2));
+        usdc_client.mint(&samwise, &join_amount);
+        usdc_client.mint(&merry, &join_2_amount);
+        let pair_min = 1;
+        let duration = ONE_DAY_LEDGERS;
+        e.budget().reset_default();
+
+        e.as_contract(&bootstrapper, || {
+            storage::set_comet_token_data(
+                &e,
+                0,
+                TokenInfo {
+                    address: blnd.clone(),
+                    weight: 800_0000,
+                },
+            );
+            storage::set_comet_token_data(
+                &e,
+                1,
+                TokenInfo {
+                    address: usdc.clone(),
+                    weight: 200_0000,
+                },
+            );
+            execute_start_bootstrap(
+                &e,
+                frodo.clone(),
+                0,
+                bootstrap_amount,
+                pair_min,
+                duration,
+                pool_address.clone(),
+            );
+            execute_join(&e, &samwise, join_amount, frodo.clone(), 0);
+            execute_join(&e, &merry, join_2_amount, frodo.clone(), 0);
+            e.ledger().set(LedgerInfo {
+                timestamp: 600,
+                protocol_version: 20,
+                sequence_number: 1234 + duration,
+                network_id: Default::default(),
+                base_reserve: 10,
+                min_temp_entry_ttl: 10,
+                min_persistent_entry_ttl: 10,
+                max_entry_ttl: 2000000,
+            });
+            execute_exit(&e, samwise.clone(), join_amount / 2, frodo.clone(), 0);
         })
     }
     #[test]

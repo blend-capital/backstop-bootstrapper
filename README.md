@@ -15,19 +15,33 @@ Blend Bootstraps are carried out over a series of steps:
 1. A user creates a bootstrapping event by calling the `add_bootstrap` function. This function takes the following parameters:
 
 - boostrapper: The address of the bootstrap initiator.
-- bootstrap_token: The address of the token that the bootstrapper will be depositing so that it can be paired with the other backstop liquidity pool token. (this will either be BLND or USDC)
-- pair_token: The address of the token to pair with. (this will either be BLND or USDC)
+- bootstrap_token: The index of the token in the comet pool that you want to bootstrap (0 for BLND 1 for USDC).
 - bootstrap_amount: The bootstrap token amount.
 - pair_min: The minimum amount of pair token to add.
 - duration: The duration of the bootstrap in blocks.
-- bootstrap_weight: The weight of the bootstrap.
 - pool_address: The address of the pool whose backstop is being funded.
-- bootstrap_token_index: The index of the bootstrap token.
-- pair_token_index: The index of the pair token.
+
+There are a few things to consider when creating your bootstrap event:
+
+- Pair min is the minimum amount of pair tokens that you're willing to pair your bootstrap tokens with. Setting this too low will result in you receiving fewer LP tokens as you'll realize more slippage when the tokens are deposited into the comet pool. Setting it too high will make it harder to fill your bootstrap event. You should consider the current balance of bootstrap and pair tokens in the pool, and how much larger you're making them pool by adding your tokens when setting this field.
+- Duration is the number of blocks that the bootstrap event will be open for. This is important as the longer the duration, the more time there is for other users to pair their tokens with yours. Setting this too low might result in you being unable to fill your bootstrap event.
+- Pool address is the address of the pool that you're bootstrapping. When you claim the tokens from a successful bootstrap event the LP tokens will be deposited into this pool's backstop. So make sure you're bootstrapping a pool that both you, and potential participants are interested in insuring.
+
+2. User's can now join and exit the bootstrap event by calling the `join` and `exit` functions. The important parameter for these functions is the `amount` parameter which is the amount of pair tokens the user deposits or withdraws from the bootstrap event.
+
+User's joining and exiting the bootstrap event influences the number of LP tokens that are minted and deposited into the backstop. You could think of it as a user agreeing to "buy" or "sell" deposited LP tokens, with the price being determined by the ratio of the bootstrap tokens to the pair tokens in the pool.
+
+Once the bootstrap duration has expired users can no longer join or exit the bootstrap event.
+
+3. Once the bootstrap event has ended, anyone can call the `close_bootstrap` function to finalize the bootstrap. Then, if the `pair_min` was met, all tokens are deposited into the comet pool. If the `pair_min` was not met, the bootstrap is marked as cancelled and the bootstrapper and participants can retrieve their tokens by calling `claim`.
+
+It's important to note that multiple `close_bootstrap` calls may be required in order to fully finalize the bootstrap. This is because comet does not allow single sided deposits larger than 50% of the pool's token balance. If a bootstrap is too unbalanced it will deposit up to this limit, and the someone will need to call `close_bootstrap` again to deposit the remaining tokens.
+
+4. After the bootstrap has been finalized, the bootstrapper and participants can call the `claim` function to retrieve their tokens. In the case of a successful bootstrap the claimed comet LP tokens will be deposited into the specified pool's backstop. In the case of a cancelled bootstrap the originally deposited tokens will be returned to the bootstrapper and participants.
 
 ## Audits
 
-No audits have been conducted for the protocol at this time. Results will be included here at the conclusion of an audit.
+No audits are planned at this time.
 
 ## Getting Started
 
