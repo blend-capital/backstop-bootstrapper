@@ -10,7 +10,7 @@ use soroban_sdk::{
 
 use crate::{
     constants::{MAX_IN_RATIO, SCALAR_7},
-    dependencies::{BackstopClient, CometClient},
+    dependencies::{BackstopClient, CometClient, PoolFactoryClient},
     errors::BackstopBootstrapperError,
     storage,
     types::{Bootstrap, BootstrapStatus},
@@ -37,13 +37,18 @@ pub fn execute_start_bootstrap(
     );
     assert_with_error!(
         e,
-        duration >= storage::ONE_DAY_LEDGERS,
+        duration >= 1,
         BackstopBootstrapperError::DurationTooShort
     );
     assert_with_error!(
         e,
         duration < storage::LEDGER_BUMP_SHARED - storage::ONE_DAY_LEDGERS,
         BackstopBootstrapperError::DurationTooLong
+    );
+    assert_with_error!(
+        e,
+        PoolFactoryClient::new(&e, &storage::get_pool_factory(e)).is_pool(&pool_address),
+        BackstopBootstrapperError::InvalidPoolAddressError
     );
     let bootstrap = Bootstrap::new(
         e,
@@ -425,8 +430,8 @@ mod tests {
     use crate::{
         storage::{BootstrapKey, ONE_DAY_LEDGERS},
         testutils::{
-            create_backstop, create_blnd_token, create_bootstrapper, create_usdc_token,
-            setup_bootstrapper,
+            create_backstop, create_blnd_token, create_bootstrapper, create_comet_lp_pool,
+            create_emitter, create_mock_pool_factory, create_usdc_token, setup_bootstrapper,
         },
         types::{BootstrapData, TokenInfo},
     };
@@ -435,6 +440,7 @@ mod tests {
 
     use super::*;
     use soroban_sdk::{
+        map,
         testutils::{Address as _, Ledger as _, LedgerInfo},
         Address, Env,
     };
@@ -520,7 +526,7 @@ mod tests {
         })
     }
     #[test]
-    fn test_start_load_bootstrap_2() {
+    fn test_start_load_bootstrap_3() {
         let e = Env::default();
         e.mock_all_auths_allowing_non_root_auth();
         e.ledger().set(LedgerInfo {
@@ -607,6 +613,27 @@ mod tests {
             assert_eq!(bootstrap_data.bootstrap_token_index, 1);
             assert_eq!(bootstrap_balance, bootstrap_amount);
             assert_eq!(frodo_balance, 0);
+            execute_start_bootstrap(
+                &e,
+                frodo.clone(),
+                0,
+                bootstrap_amount,
+                pair_min,
+                duration,
+                pool_address.clone(),
+            );
+            let bootstrap_data = storage::get_bootstrap_data(&e, frodo.clone(), 2).unwrap();
+            assert_eq!(bootstrap_data.bootstrap_amount, bootstrap_amount);
+            assert_eq!(bootstrap_data.pair_min, pair_min);
+            assert_eq!(bootstrap_data.close_ledger, duration + 1234);
+            assert_eq!(bootstrap_data.pool_address, pool_address);
+            assert_eq!(bootstrap_data.total_deposits, 0);
+            assert_eq!(bootstrap_data.deposits.len(), 0);
+            assert_eq!(bootstrap_data.status, 0);
+            assert_eq!(bootstrap_data.backstop_tokens, 0);
+            assert_eq!(bootstrap_data.bootstrap_token_index, 0);
+            assert_eq!(bootstrap_balance, bootstrap_amount);
+            assert_eq!(frodo_balance, 0);
         })
     }
 
@@ -649,6 +676,80 @@ mod tests {
         e.budget().reset_default();
 
         e.as_contract(&bootstrapper, || {
+            storage::set_comet_token_data(
+                &e,
+                0,
+                TokenInfo {
+                    address: blnd.clone(),
+                    weight: 800_0000,
+                },
+            );
+            storage::set_comet_token_data(
+                &e,
+                1,
+                TokenInfo {
+                    address: usdc.clone(),
+                    weight: 200_0000,
+                },
+            );
+            execute_start_bootstrap(
+                &e,
+                frodo.clone(),
+                0,
+                bootstrap_amount,
+                pair_min,
+                duration,
+                pool_address.clone(),
+            );
+        })
+    }
+    #[test]
+    #[should_panic(expected = "HostError: Error(Contract, #103)")]
+    fn test_start_load_bootstrap_not_pool() {
+        let e = Env::default();
+        e.mock_all_auths_allowing_non_root_auth();
+        e.ledger().set(LedgerInfo {
+            timestamp: 600,
+            protocol_version: 20,
+            sequence_number: 1234,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 2000000,
+        });
+        let bombadil = Address::generate(&e);
+        let frodo = Address::generate(&e);
+        let pool_address = Address::generate(&e);
+        let bootstrapper = create_bootstrapper(&e);
+        let (backstop, _) = create_backstop(&e);
+        let (blnd, blnd_client) = create_blnd_token(&e, &bootstrapper, &bombadil);
+        let (usdc, _) = create_usdc_token(&e, &bootstrapper, &bombadil);
+        e.budget().reset_unlimited();
+        let comet = create_comet_lp_pool(&e, &bombadil, &blnd, &usdc);
+        let (pool_factory, _) = create_mock_pool_factory(&e);
+        let (emitter, _) = create_emitter(&e, &backstop, &comet.0, &blnd);
+        let backstop_client: BackstopClient = BackstopClient::new(&e, &backstop);
+
+        backstop_client.initialize(
+            &comet.0,
+            &emitter,
+            &usdc,
+            &blnd,
+            &pool_factory,
+            &map![&e, (pool_address.clone(), 50_000_000 * SCALAR_7)],
+        );
+        let bootstrap_amount = 100 * SCALAR_7;
+        blnd_client.mint(&frodo, &(bootstrap_amount * 2));
+        let pair_min = 10 * SCALAR_7;
+        let duration = ONE_DAY_LEDGERS - 1;
+        e.budget().reset_default();
+
+        e.as_contract(&bootstrapper, || {
+            storage::set_is_init(&e);
+            storage::set_backstop(&e, backstop.clone());
+            storage::set_backstop_token(&e, comet.0);
+            storage::set_pool_factory(&e, pool_factory);
             storage::set_comet_token_data(
                 &e,
                 0,

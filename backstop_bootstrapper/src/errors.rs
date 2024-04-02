@@ -20,6 +20,7 @@ pub enum BackstopBootstrapperError {
     DurationTooShort = 100,
     DurationTooLong = 101,
     InvalidBootstrapAmount = 102,
+    InvalidPoolAddressError = 103,
     BootstrapNotFoundError = 104,
     BootstrapNotActiveError = 105,
     BootstrapNotCompleteError = 106,

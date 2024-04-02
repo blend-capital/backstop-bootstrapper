@@ -11,13 +11,19 @@ pub struct BackstopBootstrapperContract;
 
 #[contractimpl]
 impl BackstopBootstrapper for BackstopBootstrapperContract {
-    fn initialize(e: Env, backstop: Address, backstop_token: Address) {
+    fn initialize(
+        e: Env,
+        backstop: Address,
+        backstop_token: Address,
+        pool_factory_address: Address,
+    ) {
         if storage::get_is_init(&e) {
             panic_with_error!(&e, BackstopBootstrapperError::AlreadyInitializedError);
         }
         storage::set_is_init(&e);
         storage::set_backstop(&e, backstop);
         storage::set_backstop_token(&e, backstop_token.clone());
+        storage::set_pool_factory(&e, pool_factory_address);
         let backstop_token = CometClient::new(&e, &backstop_token);
         let tokens = backstop_token.get_tokens();
         for (i, address) in tokens.iter().enumerate() {

@@ -7,7 +7,13 @@ pub trait BackstopBootstrapper {
     /// # Arguments
     /// * `backstop` - The backstop address
     /// * `backstop_token` - The backstop token address
-    fn initialize(e: Env, backstop: Address, backstop_token: Address);
+    /// * `pool_factory_address` - The pool factory address
+    fn initialize(
+        e: Env,
+        backstop: Address,
+        backstop_token: Address,
+        pool_factory_address: Address,
+    );
 
     /// Add a new unlock time and percentage unlocked if unlock already exists the percentage is updated
     ///

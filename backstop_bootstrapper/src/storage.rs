@@ -3,6 +3,7 @@ use soroban_sdk::{contracttype, unwrap::UnwrapOptimized, Address, Env, Symbol};
 use crate::types::{BootstrapData, TokenInfo};
 
 const BACKSTOP_KEY: &str = "Backstop";
+const POOL_FACTORY_KEY: &str = "PoolFactory";
 const BACKSTOP_TOKEN_KEY: &str = "Owner";
 const IS_INIT_KEY: &str = "IsInit";
 
@@ -58,6 +59,21 @@ pub fn set_backstop(e: &Env, backstop: Address) {
     e.storage()
         .instance()
         .set::<Symbol, Address>(&Symbol::new(e, BACKSTOP_KEY), &backstop);
+}
+
+/// Get the pool factory address
+pub fn get_pool_factory(e: &Env) -> Address {
+    e.storage()
+        .instance()
+        .get::<Symbol, Address>(&Symbol::new(e, POOL_FACTORY_KEY))
+        .unwrap_optimized()
+}
+
+/// Set the backstop address
+pub fn set_pool_factory(e: &Env, pool_factory: Address) {
+    e.storage()
+        .instance()
+        .set::<Symbol, Address>(&Symbol::new(e, POOL_FACTORY_KEY), &pool_factory);
 }
 
 /// Get the backstop token address

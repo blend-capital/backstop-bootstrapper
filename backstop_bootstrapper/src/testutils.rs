@@ -27,11 +27,12 @@ pub(crate) fn setup_bootstrapper<'a>(
     usdc: &Address,
 ) -> CometClient<'a> {
     let comet = create_comet_lp_pool(e, admin, &blnd, &usdc);
-    setup_backstop(e, pool_address, &backstop, &comet.0, &usdc, &blnd);
+    let pool_factory = setup_backstop(e, pool_address, &backstop, &comet.0, &usdc, &blnd);
     e.as_contract(bootstrapper_address, || {
         storage::set_is_init(e);
         storage::set_backstop(e, backstop.clone());
         storage::set_backstop_token(e, comet.0);
+        storage::set_pool_factory(e, pool_factory);
     });
     comet.1
 }
@@ -135,7 +136,7 @@ pub(crate) fn setup_backstop(
     backstop_token: &Address,
     usdc_token: &Address,
     blnd_token: &Address,
-) {
+) -> Address {
     let (pool_factory, mock_pool_factory_client) = create_mock_pool_factory(e);
     mock_pool_factory_client.set_pool(pool_address);
     let (emitter, _) = create_emitter(e, backstop_address, backstop_token, blnd_token);
@@ -149,6 +150,7 @@ pub(crate) fn setup_backstop(
         &pool_factory,
         &map![e, (pool_address.clone(), 50_000_000 * SCALAR_7)],
     );
+    pool_factory
 }
 
 /// Deploy a test Comet LP pool of 80% BLND / 20% USDC and set it as the backstop token.
