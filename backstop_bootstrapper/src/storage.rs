@@ -1,6 +1,6 @@
-use soroban_sdk::{contracttype, Address, Env, IntoVal, Symbol, TryFromVal, Val};
+use soroban_sdk::{contracttype, unwrap::UnwrapOptimized, Address, Env, Symbol};
 
-use crate::types::Bootstrap;
+use crate::types::{BootstrapData, TokenInfo};
 
 const BACKSTOP_KEY: &str = "Backstop";
 const BACKSTOP_TOKEN_KEY: &str = "Owner";
@@ -13,8 +13,14 @@ pub const LEDGER_BUMP_SHARED: u32 = 15 * ONE_DAY_LEDGERS;
 #[derive(Clone)]
 #[contracttype]
 pub struct BootstrapKey {
-    id: u32,
-    creator: Address,
+    pub id: u32,
+    pub creator: Address,
+}
+
+#[derive(Clone)]
+#[contracttype]
+pub enum CometData {
+    Token(u32),
 }
 //********** Storage Utils **********//
 
@@ -23,24 +29,6 @@ pub fn extend_instance(e: &Env) {
     e.storage()
         .instance()
         .extend_ttl(LEDGER_THRESHOLD_SHARED, LEDGER_BUMP_SHARED);
-}
-
-/// Fetch an entry in persistent storage that has a default value if it doesn't exist
-fn get_persistent_default<K: IntoVal<Env, Val>, V: TryFromVal<Env, Val>>(
-    e: &Env,
-    key: &K,
-    default: V,
-    bump_threshold: u32,
-    bump_amount: u32,
-) -> V {
-    if let Some(result) = e.storage().persistent().get::<K, V>(key) {
-        e.storage()
-            .persistent()
-            .extend_ttl(key, bump_threshold, bump_amount);
-        result
-    } else {
-        default
-    }
 }
 
 /********** Instance **********/
@@ -62,14 +50,14 @@ pub fn get_backstop(e: &Env) -> Address {
     e.storage()
         .instance()
         .get::<Symbol, Address>(&Symbol::new(e, BACKSTOP_KEY))
-        .unwrap()
+        .unwrap_optimized()
 }
 
 /// Set the backstop address
-pub fn set_backstop(e: &Env, admin: Address) {
+pub fn set_backstop(e: &Env, backstop: Address) {
     e.storage()
         .instance()
-        .set::<Symbol, Address>(&Symbol::new(e, BACKSTOP_KEY), &admin);
+        .set::<Symbol, Address>(&Symbol::new(e, BACKSTOP_KEY), &backstop);
 }
 
 /// Get the backstop token address
@@ -77,35 +65,49 @@ pub fn get_backstop_token(e: &Env) -> Address {
     e.storage()
         .instance()
         .get::<Symbol, Address>(&Symbol::new(e, BACKSTOP_TOKEN_KEY))
-        .unwrap()
+        .unwrap_optimized()
 }
 
 /// Set the comet address
-pub fn set_backstop_token(e: &Env, admin: Address) {
+pub fn set_backstop_token(e: &Env, backstop_token: Address) {
     e.storage()
         .instance()
-        .set::<Symbol, Address>(&Symbol::new(e, BACKSTOP_TOKEN_KEY), &admin);
+        .set::<Symbol, Address>(&Symbol::new(e, BACKSTOP_TOKEN_KEY), &backstop_token);
+}
+
+// Set comet token data
+pub fn set_comet_token_data(e: &Env, index: u32, data: TokenInfo) {
+    let key = CometData::Token(index);
+    e.storage()
+        .instance()
+        .set::<CometData, TokenInfo>(&key, &data);
+}
+
+// Get comet token data
+pub fn get_comet_token_data(e: &Env, index: u32) -> Option<TokenInfo> {
+    let key = CometData::Token(index);
+    e.storage().instance().get::<CometData, TokenInfo>(&key)
 }
 
 /********** Persistent **********/
 
 /// Get a bootstrap
-pub fn get_bootstrap(e: &Env, creator: Address, id: u32) -> Option<Bootstrap> {
+pub fn get_bootstrap_data(e: &Env, creator: Address, id: u32) -> Option<BootstrapData> {
     let key = BootstrapKey { id, creator };
     e.storage()
         .persistent()
         .extend_ttl(&key, LEDGER_THRESHOLD_SHARED, LEDGER_BUMP_SHARED);
     e.storage()
         .persistent()
-        .get::<BootstrapKey, Bootstrap>(&key)
+        .get::<BootstrapKey, BootstrapData>(&key)
 }
 
 /// Set the mapping of sequence to unlock percentage
-pub fn set_bootstrap(e: &Env, creator: Address, id: u32, bootstrap: &Bootstrap) {
+pub fn set_bootstrap_data(e: &Env, creator: Address, id: u32, bootstrap_data: &BootstrapData) {
     let key = BootstrapKey { id, creator };
     e.storage()
         .persistent()
-        .set::<BootstrapKey, Bootstrap>(&key, &bootstrap);
+        .set::<BootstrapKey, BootstrapData>(&key, &bootstrap_data);
     e.storage()
         .persistent()
         .extend_ttl(&key, LEDGER_THRESHOLD_SHARED, LEDGER_BUMP_SHARED);
@@ -118,8 +120,10 @@ pub fn remove_bootstrap(e: &Env, creator: Address, id: u32) {
 }
 
 pub fn bump_bootstrap_id(e: &Env, creator: Address) -> u32 {
-    let id =
-        get_persistent_default(e, &creator, 0, LEDGER_THRESHOLD_SHARED, LEDGER_BUMP_SHARED) + 1;
+    let id = match e.storage().persistent().get::<Address, u32>(&creator) {
+        Some(id) => id + 1,
+        None => 0,
+    };
     e.storage().persistent().set::<Address, u32>(&creator, &id);
     e.storage()
         .persistent()

@@ -2,8 +2,8 @@
 resolver = "2"
 
 members = [ 
-    "backstop-bootstrapper",
-    "tests"
+    "backstop_bootstrapper",
+    
 ]
 
 [profile.release-with-logs]
@@ -21,7 +21,7 @@ codegen-units = 1
 lto = true
 
 [workspace.dependencies.soroban-sdk]
-version = "20.1.0"
+version = "20.3.1"
 
-[workspace.dependencies.sep-41-token]
-version = "0.3.0"
+[workspace.dependencies.soroban-fixed-point-math]
+version = "1.0.0"

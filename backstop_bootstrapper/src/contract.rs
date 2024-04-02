@@ -1,6 +1,8 @@
+use core::u32;
+
 use crate::{
-    backstop_bootstrapper::BackstopBootstrapper, bootstrap_management,
-    errors::BackstopBootstrapperError, storage,
+    backstop_bootstrapper::BackstopBootstrapper, bootstrap_management, dependencies::CometClient,
+    errors::BackstopBootstrapperError, storage, types::TokenInfo,
 };
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env};
 
@@ -15,35 +17,33 @@ impl BackstopBootstrapper for BackstopBootstrapperContract {
         }
         storage::set_is_init(&e);
         storage::set_backstop(&e, backstop);
-        storage::set_backstop_token(&e, backstop_token);
+        storage::set_backstop_token(&e, backstop_token.clone());
+        let backstop_token = CometClient::new(&e, &backstop_token);
+        let tokens = backstop_token.get_tokens();
+        for (i, address) in tokens.iter().enumerate() {
+            let weight = backstop_token.get_normalized_weight(&address);
+            storage::set_comet_token_data(&e, i as u32, TokenInfo { address, weight });
+        }
     }
 
     fn add_bootstrap(
         e: Env,
         bootstrapper: Address,
-        bootstrap_token: Address,
-        pair_token: Address,
+        bootstrap_token_index: u32,
         bootstrap_amount: i128,
         pair_min: i128,
         duration: u32,
-        bootstrap_weight: u64,
         pool_address: Address,
-        bootstrap_token_index: u32,
-        pair_token_index: u32,
     ) {
         bootstrapper.require_auth();
         bootstrap_management::execute_start_bootstrap(
             &e,
             bootstrapper,
-            bootstrap_token,
-            pair_token,
+            bootstrap_token_index,
             bootstrap_amount,
             pair_min,
             duration,
-            bootstrap_weight,
             pool_address,
-            bootstrap_token_index,
-            pair_token_index,
         );
     }
 
@@ -57,7 +57,8 @@ impl BackstopBootstrapper for BackstopBootstrapperContract {
         bootstrap_management::execute_exit(&e, from, amount, bootstrapper, bootstrap_id);
     }
 
-    fn close_bootstrap(e: Env, bootstrapper: Address, bootstrap_id: u32) {
+    fn close_bootstrap(e: Env, from: Address, bootstrapper: Address, bootstrap_id: u32) {
+        from.require_auth();
         bootstrap_management::execute_close(&e, bootstrap_id, bootstrapper);
     }
     fn claim(e: Env, from: Address, bootstrapper: Address, bootstrap_id: u32) {

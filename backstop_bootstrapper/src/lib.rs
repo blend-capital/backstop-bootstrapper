@@ -9,5 +9,11 @@ pub mod contract;
 pub mod errors;
 pub mod storage;
 pub use contract::*;
+pub mod constants;
 pub mod dependencies;
 pub mod types;
+
+#[cfg(any(test, feature = "testutils"))]
+mod happy_path;
+#[cfg(any(test, feature = "testutils"))]
+pub mod testutils;

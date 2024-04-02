@@ -13,26 +13,19 @@ pub trait BackstopBootstrapper {
     ///
     /// # Arguments
     /// * `bootstrapper` - The address of the bootstrap initiator
-    /// * `bootstrap_token` - The address of the token that needs pairing
-    /// * `pair_token` - The address of the token to pair with
+    /// * `bootstrap_token` - 0 for BLND, 1 for USDC
     /// * `bootstrap_amount` - The bootstrap token amount
     /// * `pair_min` - The minimum amount of pair token to add
     /// * `duration` - The duration of the bootstrap in blocks
-    /// * `bootstrap_weight` - The weight of the bootstrap
     /// * `pool_address` - The address of the pool whose backstop is being funded
-    /// * `index` - The index of the bootstrap event
     fn add_bootstrap(
         e: Env,
         boostrapper: Address,
-        bootstrap_token: Address,
-        pair_token: Address,
+        bootstrap_token_index: u32,
         bootstrap_amount: i128,
         pair_min: i128,
         duration: u32,
-        bootstrap_weight: u64,
         pool_address: Address,
-        bootstrap_token_index: u32,
-        pair_token_index: u32,
     );
 
     /// Join a Bootstrap Event with a given amount of pair tokens
@@ -51,7 +44,7 @@ pub trait BackstopBootstrapper {
 
     /// Close the bootstrap event
     ///
-    fn close_bootstrap(e: Env, bootstrapper: Address, bootstrap_id: u32);
+    fn close_bootstrap(e: Env, from: Address, bootstrapper: Address, bootstrap_id: u32);
 
     /// Claim and deposit pool tokens into backstop
     ///

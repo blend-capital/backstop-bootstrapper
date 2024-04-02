@@ -20,10 +20,10 @@ pub enum BackstopBootstrapperError {
     DurationTooShort = 100,
     DurationTooLong = 101,
     InvalidBootstrapAmount = 102,
-    InvalidBootstrapWeight = 103,
     BootstrapNotFoundError = 104,
     BootstrapNotActiveError = 105,
     BootstrapNotCompleteError = 106,
     BootstrapAlreadyClaimedError = 107,
     InsufficientDepositError = 108,
+    ReceivedNoBackstopTokens = 109,
 }
