@@ -1,5 +1,7 @@
 use soroban_sdk::{contractclient, Address, Env};
 
+use crate::types::Bootstrap;
+
 #[contractclient(name = "BackstopBootstrapperContract")]
 pub trait BackstopBootstrapper {
     /// Initialize the contract with the admin and owner addresses
@@ -54,9 +56,24 @@ pub trait BackstopBootstrapper {
 
     /// Close the bootstrap event
     ///
+    /// # Arguments
+    /// * `from` - The address of the user closing the bootstrap
+    /// * `bootstrapper` - The address of the bootstrap initiator
+    /// * `bootstrap_id` - The id of the bootstrap event
     fn close_bootstrap(e: Env, from: Address, bootstrapper: Address, bootstrap_id: u32);
 
     /// Claim and deposit pool tokens into backstop
     ///
+    /// # Arguments
+    /// * `from` - The address of the user claiming their bootstrap proceeds
+    /// * `bootstrapper` - The address of the bootstrap initiator
+    /// * `bootstrap_id` - The id of the bootstrap event
     fn claim(e: Env, from: Address, boostrapper: Address, bootstrap_id: u32);
+
+    /// Return bootstrap data
+    ///
+    /// # Arguments
+    /// * `bootstrap_id` - The id of the bootstrap event
+    /// * `bootstrapper` - The address of the bootstrap initiator
+    fn get_bootstrap(e: Env, bootstrap_id: u32, bootstrapper: Address) -> Bootstrap;
 }

@@ -1,8 +1,12 @@
 use core::u32;
 
 use crate::{
-    backstop_bootstrapper::BackstopBootstrapper, bootstrap_management, dependencies::CometClient,
-    errors::BackstopBootstrapperError, storage, types::TokenInfo,
+    backstop_bootstrapper::BackstopBootstrapper,
+    bootstrap_management,
+    dependencies::CometClient,
+    errors::BackstopBootstrapperError,
+    storage,
+    types::{Bootstrap, TokenInfo},
 };
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env};
 
@@ -67,8 +71,13 @@ impl BackstopBootstrapper for BackstopBootstrapperContract {
         from.require_auth();
         bootstrap_management::execute_close(&e, bootstrap_id, bootstrapper);
     }
+
     fn claim(e: Env, from: Address, bootstrapper: Address, bootstrap_id: u32) {
         from.require_auth();
         bootstrap_management::execute_claim(&e, &from, bootstrap_id, bootstrapper);
+    }
+
+    fn get_bootstrap(e: Env, bootstrap_id: u32, bootstrapper: Address) -> Bootstrap {
+        Bootstrap::load(&e, bootstrapper, bootstrap_id)
     }
 }

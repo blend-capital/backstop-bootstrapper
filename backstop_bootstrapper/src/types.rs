@@ -44,6 +44,7 @@ pub struct BootstrapData {
 }
 
 #[derive(Clone)]
+#[contracttype]
 pub struct Bootstrap {
     pub bootstrapper: Address,
     pub bootstrap_amount: i128,
