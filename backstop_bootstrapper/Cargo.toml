@@ -16,10 +16,12 @@ doctest = false
 testutils = ["soroban-sdk/testutils"]
 
 [dependencies]
-soroban-sdk = {workspace = true}
+soroban-sdk = { workspace = true }
 soroban-fixed-point-math = { workspace = true }
+blend-contract-sdk = { workspace = true }
 
 
 [dev_dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
 mock-pool-factory = { path = "../mocks/mock-pool-factory" ,features = ["testutils"] }
+blend-contract-sdk = { workspace = true, features = ["testutils"] }

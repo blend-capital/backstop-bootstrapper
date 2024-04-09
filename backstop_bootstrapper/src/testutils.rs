@@ -1,17 +1,11 @@
 #![cfg(test)]
 
-use crate::{
-    constants::SCALAR_7,
-    dependencies::{BackstopClient, BackstopContract, CometClient, CometContract},
-    storage,
-    types::TokenInfo,
-    BackstopBootstrapperContract,
-};
+use crate::{constants::SCALAR_7, storage, types::TokenInfo, BackstopBootstrapperContract};
+use blend_contract_sdk::{backstop, testutils::comet};
+use mock_pool_factory::{MockPoolFactory, MockPoolFactoryClient};
 use soroban_sdk::{
     map, testutils::Address as _, token::StellarAssetClient, token::TokenClient, vec, Address, Env,
 };
-
-use mock_pool_factory::{MockPoolFactory, MockPoolFactoryClient};
 
 pub(crate) fn create_bootstrapper(e: &Env) -> Address {
     e.register_contract(None, BackstopBootstrapperContract {})
@@ -25,7 +19,7 @@ pub(crate) fn setup_bootstrapper<'a>(
     admin: &Address,
     blnd: &Address,
     usdc: &Address,
-) -> CometClient<'a> {
+) -> comet::Client<'a> {
     let comet = create_comet_lp_pool(e, admin, &blnd, &usdc);
     let pool_factory = setup_backstop(e, pool_address, &backstop, &comet.0, &usdc, &blnd);
     e.as_contract(bootstrapper_address, || {
@@ -121,11 +115,11 @@ pub(crate) fn create_emitter<'a>(
     (contract_address.clone(), client)
 }
 
-pub(crate) fn create_backstop(e: &Env) -> (Address, BackstopClient) {
-    let contract_address = e.register_contract_wasm(&Address::generate(&e), BackstopContract);
+pub(crate) fn create_backstop(e: &Env) -> (Address, backstop::Client) {
+    let contract_address = e.register_contract_wasm(&Address::generate(&e), backstop::WASM);
     (
         contract_address.clone(),
-        BackstopClient::new(e, &contract_address),
+        backstop::Client::new(e, &contract_address),
     )
 }
 
@@ -140,7 +134,7 @@ pub(crate) fn setup_backstop(
     let (pool_factory, mock_pool_factory_client) = create_mock_pool_factory(e);
     mock_pool_factory_client.set_pool(pool_address);
     let (emitter, _) = create_emitter(e, backstop_address, backstop_token, blnd_token);
-    let backstop_client: BackstopClient = BackstopClient::new(e, backstop_address);
+    let backstop_client: backstop::Client = backstop::Client::new(e, backstop_address);
 
     backstop_client.initialize(
         backstop_token,
@@ -165,10 +159,10 @@ pub(crate) fn create_comet_lp_pool<'a>(
     admin: &Address,
     blnd_token: &Address,
     usdc_token: &Address,
-) -> (Address, CometClient<'a>) {
+) -> (Address, comet::Client<'a>) {
     let contract_address = Address::generate(e);
-    e.register_contract_wasm(&contract_address, CometContract);
-    let client = CometClient::new(e, &contract_address);
+    e.register_contract_wasm(&contract_address, comet::WASM);
+    let client = comet::Client::new(e, &contract_address);
 
     let blnd_client = StellarAssetClient::new(e, blnd_token);
     let usdc_client = StellarAssetClient::new(e, usdc_token);

@@ -1,3 +1,6 @@
+use blend_contract_sdk::{
+    backstop::Client as BackstopClient, pool_factory::Client as PoolFactoryClient,
+};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     assert_with_error,
@@ -10,7 +13,7 @@ use soroban_sdk::{
 
 use crate::{
     constants::{MAX_IN_RATIO, SCALAR_7},
-    dependencies::{BackstopClient, CometClient, PoolFactoryClient},
+    dependencies::comet::Client as CometClient,
     errors::BackstopBootstrapperError,
     storage,
     types::{Bootstrap, BootstrapStatus},
@@ -457,7 +460,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -537,7 +540,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -650,7 +653,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -716,7 +719,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -742,7 +745,7 @@ mod tests {
         let bootstrap_amount = 100 * SCALAR_7;
         blnd_client.mint(&frodo, &(bootstrap_amount * 2));
         let pair_min = 10 * SCALAR_7;
-        let duration = ONE_DAY_LEDGERS - 1;
+        let duration = ONE_DAY_LEDGERS + 1;
         e.budget().reset_default();
 
         e.as_contract(&bootstrapper, || {
@@ -791,7 +794,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -858,7 +861,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -925,7 +928,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -991,7 +994,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -1086,7 +1089,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -1151,7 +1154,7 @@ mod tests {
                 base_reserve: 10,
                 min_temp_entry_ttl: 10,
                 min_persistent_entry_ttl: 10,
-                max_entry_ttl: 2000000,
+                max_entry_ttl: 3110400,
             });
             execute_join(&e, &samwise, join_amount, frodo.clone(), 0);
         })
@@ -1169,7 +1172,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -1272,7 +1275,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);
@@ -1339,7 +1342,7 @@ mod tests {
                 base_reserve: 10,
                 min_temp_entry_ttl: 10,
                 min_persistent_entry_ttl: 10,
-                max_entry_ttl: 2000000,
+                max_entry_ttl: 3110400,
             });
             execute_exit(&e, samwise.clone(), join_amount / 2, frodo.clone(), 0);
         })
@@ -1357,7 +1360,7 @@ mod tests {
             base_reserve: 10,
             min_temp_entry_ttl: 10,
             min_persistent_entry_ttl: 10,
-            max_entry_ttl: 2000000,
+            max_entry_ttl: 3110400,
         });
         let bombadil = Address::generate(&e);
         let frodo = Address::generate(&e);

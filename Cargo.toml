@@ -21,7 +21,10 @@ codegen-units = 1
 lto = true
 
 [workspace.dependencies.soroban-sdk]
-version = "20.3.1"
+version = "20.5.0"
 
 [workspace.dependencies.soroban-fixed-point-math]
 version = "1.0.0"
+
+[workspace.dependencies.blend-contract-sdk]
+version = "0.1.0"

@@ -3,7 +3,7 @@ use core::u32;
 use crate::{
     backstop_bootstrapper::BackstopBootstrapper,
     bootstrap_management,
-    dependencies::CometClient,
+    dependencies::comet::Client as CometClient,
     errors::BackstopBootstrapperError,
     storage,
     types::{Bootstrap, TokenInfo},
