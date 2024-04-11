@@ -17,14 +17,12 @@ pub enum BackstopBootstrapperError {
 
     BadRequest = 50,
 
-    DurationTooShort = 100,
-    DurationTooLong = 101,
+    InvalidCloseLedger = 100,
+    InvalidBootstrapToken = 101,
     InvalidBootstrapAmount = 102,
     InvalidPoolAddressError = 103,
-    BootstrapNotFoundError = 104,
-    BootstrapNotActiveError = 105,
-    BootstrapNotCompleteError = 106,
-    BootstrapAlreadyClaimedError = 107,
-    InsufficientDepositError = 108,
-    ReceivedNoBackstopTokens = 109,
+    InvalidBootstrapStatus = 104,
+    AlreadyClaimedError = 105,
+    InsufficientDepositError = 106,
+    ReceivedNoBackstopTokens = 107,
 }
