@@ -1,11 +1,14 @@
 #![cfg(test)]
 
-use crate::constants::SCALAR_7;
+use std::println;
+
+use crate::constants::{MAX_DUST_AMOUNT, SCALAR_7};
 use crate::storage::ONE_DAY_LEDGERS;
-use crate::testutils::{self, EnvTestUtils};
+use crate::testutils::{self, assert_approx_eq_abs, EnvTestUtils};
 use crate::types::BootstrapConfig;
 use crate::BackstopBootstrapperClient;
 use blend_contract_sdk::testutils::BlendFixture;
+use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::{Address as _, BytesN as _, MockAuth, MockAuthInvoke};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
 use soroban_sdk::{vec, Address, BytesN, Env, Error, IntoVal, Symbol};
@@ -110,10 +113,220 @@ fn test_refund_blnd_bootstrap_after_ledger_and_auth() {
 
     // verify bootstrapper and joiner can't refund again
     let result = bootstrap_client.mock_all_auths().try_refund(&frodo, &id);
-    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(105))));
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(108))));
 
     let result = bootstrap_client.mock_all_auths().try_refund(&samwise, &id);
-    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(105))));
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(108))));
+}
+
+#[test]
+fn test_refund_pair_after_partial_close() {
+    let e = Env::default();
+    e.budget().reset_unlimited();
+    e.set_default_info();
+    e.mock_all_auths_allowing_non_root_auth();
+
+    let bombadil = Address::generate(&e);
+    let frodo = Address::generate(&e);
+    let samwise = Address::generate(&e);
+
+    let blnd = e.register_stellar_asset_contract(bombadil.clone());
+    let usdc = e.register_stellar_asset_contract(bombadil.clone());
+    let blnd_client = StellarAssetClient::new(&e, &blnd);
+    let blnd_token = TokenClient::new(&e, &blnd);
+    let usdc_client = StellarAssetClient::new(&e, &usdc);
+    let usdc_token = TokenClient::new(&e, &usdc);
+
+    let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
+    let pool_address = blend_fixture.pool_factory.deploy(
+        &bombadil,
+        &Symbol::new(&e, "test"),
+        &BytesN::<32>::random(&e),
+        &Address::generate(&e),
+        &0,
+        &2,
+    );
+    let bootstrapper = testutils::create_bootstrapper(&e, &blend_fixture);
+    let bootstrap_client = BackstopBootstrapperClient::new(&e, &bootstrapper);
+
+    let bootstrap_amount = 1000 * SCALAR_7;
+    blnd_client.mint(&frodo, &bootstrap_amount);
+    let config = BootstrapConfig {
+        pair_min: 1 * SCALAR_7,
+        close_ledger: e.ledger().sequence() + ONE_DAY_LEDGERS,
+        bootstrapper: frodo.clone(),
+        pool: pool_address.clone(),
+        amount: bootstrap_amount,
+        token_index: 0,
+    };
+    let id = bootstrap_client.bootstrap(&config);
+    assert_eq!(bootstrap_amount, blnd_token.balance(&bootstrapper));
+    assert_eq!(0, blnd_token.balance(&frodo));
+
+    let join_amount = 25000000 * SCALAR_7;
+    usdc_client.mint(&samwise, &join_amount);
+    bootstrap_client.join(&samwise, &id, &join_amount);
+    assert_eq!(join_amount, usdc_token.balance(&bootstrapper));
+    assert_eq!(0, usdc_token.balance(&samwise));
+
+    // partial close
+    e.jump(ONE_DAY_LEDGERS + 1);
+    bootstrap_client.close(&id);
+    let backstop_tokens = blend_fixture
+        .backstop_token
+        .balance(&bootstrap_client.address);
+
+    // window for close expries
+    e.jump(14 * ONE_DAY_LEDGERS);
+
+    // claim bootstrapper
+    let claim_amount = backstop_tokens
+        .fixed_mul_floor(800_0000 as i128, SCALAR_7)
+        .unwrap();
+    let claimed = bootstrap_client.claim(&frodo, &id);
+    assert_eq!(claim_amount, claimed);
+    assert_approx_eq_abs(
+        claim_amount,
+        blend_fixture
+            .backstop
+            .user_balance(&pool_address, &frodo)
+            .shares,
+        MAX_DUST_AMOUNT,
+    );
+
+    // refund joiner
+    let usdc_balance = usdc_token.balance(&bootstrapper);
+    let refunded = bootstrap_client.refund(&samwise, &id);
+    assert_approx_eq_abs(0, usdc_token.balance(&bootstrapper), MAX_DUST_AMOUNT);
+    assert_approx_eq_abs(usdc_balance, usdc_token.balance(&samwise), MAX_DUST_AMOUNT);
+    assert_approx_eq_abs(refunded, usdc_balance, MAX_DUST_AMOUNT);
+
+    // claim joiner
+    let claim_amount = backstop_tokens
+        .fixed_mul_floor(200_0000 as i128, SCALAR_7)
+        .unwrap();
+    let claimed = bootstrap_client.claim(&samwise, &id);
+    assert_eq!(claim_amount, claimed);
+    assert_approx_eq_abs(
+        claim_amount,
+        blend_fixture
+            .backstop
+            .user_balance(&pool_address, &samwise)
+            .shares,
+        MAX_DUST_AMOUNT,
+    );
+
+    // verify bootstrapper refund is 0
+    let result = bootstrap_client.refund(&frodo, &id);
+    assert_eq!(result, 0);
+
+    let result = bootstrap_client.try_refund(&samwise, &id);
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(108))));
+}
+
+#[test]
+fn test_refund_bootstrap_after_partial_close() {
+    let e = Env::default();
+    e.budget().reset_unlimited();
+    e.set_default_info();
+    e.mock_all_auths_allowing_non_root_auth();
+
+    let bombadil = Address::generate(&e);
+    let frodo = Address::generate(&e);
+    let samwise = Address::generate(&e);
+
+    let blnd = e.register_stellar_asset_contract(bombadil.clone());
+    let usdc = e.register_stellar_asset_contract(bombadil.clone());
+    let blnd_client = StellarAssetClient::new(&e, &blnd);
+    let blnd_token = TokenClient::new(&e, &blnd);
+    let usdc_client = StellarAssetClient::new(&e, &usdc);
+    let usdc_token = TokenClient::new(&e, &usdc);
+
+    let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
+    let pool_address = blend_fixture.pool_factory.deploy(
+        &bombadil,
+        &Symbol::new(&e, "test"),
+        &BytesN::<32>::random(&e),
+        &Address::generate(&e),
+        &0,
+        &2,
+    );
+    let bootstrapper = testutils::create_bootstrapper(&e, &blend_fixture);
+    let bootstrap_client = BackstopBootstrapperClient::new(&e, &bootstrapper);
+
+    let bootstrap_amount = 10000000 * SCALAR_7;
+    blnd_client.mint(&frodo, &bootstrap_amount);
+    let config = BootstrapConfig {
+        pair_min: 1 * SCALAR_7,
+        close_ledger: e.ledger().sequence() + ONE_DAY_LEDGERS,
+        bootstrapper: frodo.clone(),
+        pool: pool_address.clone(),
+        amount: bootstrap_amount,
+        token_index: 0,
+    };
+    let id = bootstrap_client.bootstrap(&config);
+    assert_eq!(bootstrap_amount, blnd_token.balance(&bootstrapper));
+    assert_eq!(0, blnd_token.balance(&frodo));
+
+    let join_amount = 25 * SCALAR_7;
+    usdc_client.mint(&samwise, &join_amount);
+    bootstrap_client.join(&samwise, &id, &join_amount);
+    assert_eq!(join_amount, usdc_token.balance(&bootstrapper));
+    assert_eq!(0, usdc_token.balance(&samwise));
+
+    // partial close
+    e.jump(ONE_DAY_LEDGERS + 1);
+    bootstrap_client.close(&id);
+    let backstop_tokens = blend_fixture
+        .backstop_token
+        .balance(&bootstrap_client.address);
+
+    // window for close expries
+    e.jump(14 * ONE_DAY_LEDGERS);
+
+    // claim bootstrapper
+    let claim_amount = backstop_tokens
+        .fixed_mul_floor(800_0000 as i128, SCALAR_7)
+        .unwrap();
+    let claimed = bootstrap_client.claim(&frodo, &id);
+    assert_eq!(claim_amount, claimed);
+    assert_approx_eq_abs(
+        claim_amount,
+        blend_fixture
+            .backstop
+            .user_balance(&pool_address, &frodo)
+            .shares,
+        MAX_DUST_AMOUNT,
+    );
+
+    // refund bootstrapper
+    let blnd_balance = blnd_token.balance(&bootstrapper);
+    let refunded = bootstrap_client.refund(&frodo, &id);
+    assert_approx_eq_abs(0, blnd_token.balance(&bootstrapper), MAX_DUST_AMOUNT);
+    assert_approx_eq_abs(blnd_balance, blnd_token.balance(&frodo), MAX_DUST_AMOUNT);
+    assert_approx_eq_abs(refunded, blnd_balance, MAX_DUST_AMOUNT);
+
+    // claim joiner
+    let claim_amount = backstop_tokens
+        .fixed_mul_floor(200_0000 as i128, SCALAR_7)
+        .unwrap();
+    let claimed = bootstrap_client.claim(&samwise, &id);
+    assert_eq!(claim_amount, claimed);
+    assert_approx_eq_abs(
+        claim_amount,
+        blend_fixture
+            .backstop
+            .user_balance(&pool_address, &samwise)
+            .shares,
+        MAX_DUST_AMOUNT,
+    );
+
+    // verify bootstrapper and joiner can't refund again
+    let result = bootstrap_client.try_refund(&frodo, &id);
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(108))));
+
+    let result = bootstrap_client.refund(&samwise, &id);
+    assert_eq!(result, 0);
 }
 
 #[test]

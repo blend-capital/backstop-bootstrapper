@@ -5,7 +5,7 @@ use crate::{
     dependencies::comet::Client as CometClient,
     errors::BackstopBootstrapperError,
     storage,
-    types::{BootstrapConfig, BootstrapData, BootstrapStatus, TokenInfo},
+    types::{BootstrapConfig, BootstrapData, BootstrapStatus, DepositData, TokenInfo},
 };
 
 use blend_contract_sdk::{backstop, pool_factory};
@@ -78,7 +78,7 @@ impl BackstopBootstrapper {
     /// ### Arguments
     /// * `id` - The id of the bootstrap
     /// * `user` - The address of the user
-    pub fn get_deposit(e: Env, id: u32, user: Address) -> i128 {
+    pub fn get_deposit(e: Env, id: u32, user: Address) -> DepositData {
         storage::get_deposit(&e, id, &user)
     }
 
@@ -174,10 +174,10 @@ impl BackstopBootstrapper {
 
         bootstrap.join(amount);
         bootstrap.store(&e);
-        let mut deposit = storage::get_deposit(&e, id, &from);
-        deposit += amount;
-        storage::set_deposit(&e, id, &from, deposit);
-        deposit
+        let mut deposit_data = storage::get_deposit(&e, id, &from);
+        deposit_data.amount += amount;
+        storage::set_deposit(&e, id, &from, deposit_data.clone());
+        deposit_data.amount
     }
 
     /// Exits a bootstrap by withdrawing a given amount of pair tokens
@@ -204,12 +204,14 @@ impl BackstopBootstrapper {
 
         let pair_token =
             storage::get_comet_token_data(&e).get_unchecked(bootstrap.config.token_index ^ 1);
-        let mut deposit = storage::get_deposit(&e, id, &from);
-        deposit -= amount;
+        let mut deposit_data = storage::get_deposit(&e, id, &from);
+        deposit_data.amount -= amount;
         bootstrap.exit(amount);
         assert_with_error!(
             e,
-            deposit >= 0 && bootstrap.data.pair_amount >= 0 && bootstrap.data.total_pair >= 0,
+            deposit_data.amount >= 0
+                && bootstrap.data.pair_amount >= 0
+                && bootstrap.data.total_pair >= 0,
             BackstopBootstrapperError::InsufficientDepositError
         );
         TokenClient::new(&e, &pair_token.address).transfer(
@@ -218,8 +220,8 @@ impl BackstopBootstrapper {
             &amount,
         );
         bootstrap.store(&e);
-        storage::set_deposit(&e, id, &from, deposit);
-        deposit
+        storage::set_deposit(&e, id, &from, deposit_data.clone());
+        deposit_data.amount
     }
 
     /// Close the bootstrap by depositing bootstrapping tokens into the comet
@@ -317,7 +319,8 @@ impl BackstopBootstrapper {
         let bootstrap = Bootstrap::load(&e, id);
         assert_with_error!(
             e,
-            bootstrap.status == BootstrapStatus::Completed,
+            bootstrap.status == BootstrapStatus::Completed
+                || bootstrap.status == BootstrapStatus::Cancelled,
             BackstopBootstrapperError::InvalidBootstrapStatus
         );
         let backstop_address = storage::get_backstop(&e);
@@ -339,16 +342,18 @@ impl BackstopBootstrapper {
                 .fixed_mul_floor(bootstrap_info.weight as i128, SCALAR_7)
                 .unwrap_optimized();
         } else {
-            let deposit_amount = storage::get_deposit(&e, bootstrap.id, &from);
+            let mut deposit_data = storage::get_deposit(&e, bootstrap.id, &from);
             assert_with_error!(
                 e,
-                deposit_amount > 0,
+                !deposit_data.claimed,
                 BackstopBootstrapperError::AlreadyClaimedError
             );
-            storage::set_deposit(&e, bootstrap.id, &from, 0);
+            deposit_data.claimed = true;
+            storage::set_deposit(&e, bootstrap.id, &from, deposit_data.clone());
             let pair_info =
                 storage::get_comet_token_data(&e).get_unchecked(bootstrap.config.token_index ^ 1);
-            backstop_tokens = deposit_amount
+            backstop_tokens = deposit_data
+                .amount
                 .fixed_div_floor(bootstrap.data.total_pair, SCALAR_7)
                 .unwrap_optimized()
                 .fixed_mul_floor(bootstrap.data.total_backstop_tokens, SCALAR_7)
@@ -385,7 +390,7 @@ impl BackstopBootstrapper {
     /// * `id` - The address of the bootstrap initiator
     pub fn refund(e: Env, from: Address, id: u32) -> i128 {
         from.require_auth();
-        let mut bootstrap = Bootstrap::load(&e, id);
+        let bootstrap = Bootstrap::load(&e, id);
         assert_with_error!(
             e,
             bootstrap.status == BootstrapStatus::Cancelled,
@@ -395,29 +400,39 @@ impl BackstopBootstrapper {
         if bootstrap.config.bootstrapper == from {
             assert_with_error!(
                 e,
-                bootstrap.data.bootstrap_amount > 0,
-                BackstopBootstrapperError::AlreadyClaimedError
+                !storage::get_refunded(&e, id),
+                BackstopBootstrapperError::AlreadyRefundedError
             );
             let bootstrap_info =
                 storage::get_comet_token_data(&e).get_unchecked(bootstrap.config.token_index);
             amount_refunded = bootstrap.data.bootstrap_amount;
-            bootstrap.data.bootstrap_amount = 0;
             TokenClient::new(&e, &bootstrap_info.address).transfer(
                 &e.current_contract_address(),
                 &from,
                 &amount_refunded,
             );
+            storage::set_refunded(&e, id);
         } else {
-            let deposit_amount = storage::get_deposit(&e, bootstrap.id, &from);
+            let mut deposit_data = storage::get_deposit(&e, bootstrap.id, &from);
             assert_with_error!(
                 e,
-                deposit_amount > 0,
-                BackstopBootstrapperError::AlreadyClaimedError
+                !deposit_data.refunded,
+                BackstopBootstrapperError::AlreadyRefundedError
             );
-            storage::set_deposit(&e, bootstrap.id, &from, 0);
+            let deposit_amount = deposit_data.amount;
+            deposit_data.refunded = true;
+            storage::set_deposit(&e, bootstrap.id, &from, deposit_data);
 
-            amount_refunded = deposit_amount;
-            bootstrap.data.pair_amount -= amount_refunded;
+            amount_refunded = deposit_amount
+                .fixed_mul_floor(
+                    bootstrap
+                        .data
+                        .pair_amount
+                        .fixed_div_floor(bootstrap.data.total_pair, SCALAR_7)
+                        .unwrap_optimized(),
+                    SCALAR_7,
+                )
+                .unwrap_optimized();
             let pair_info =
                 storage::get_comet_token_data(&e).get_unchecked(bootstrap.config.token_index ^ 1);
             TokenClient::new(&e, &pair_info.address).transfer(
@@ -426,7 +441,6 @@ impl BackstopBootstrapper {
                 &amount_refunded,
             );
         }
-        bootstrap.store(&e);
         amount_refunded
     }
 }

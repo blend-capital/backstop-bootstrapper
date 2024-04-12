@@ -1,6 +1,6 @@
 use soroban_sdk::{contracttype, unwrap::UnwrapOptimized, Address, Env, Symbol, Vec};
 
-use crate::types::{BootstrapConfig, BootstrapData, TokenInfo};
+use crate::types::{BootstrapConfig, BootstrapData, DepositData, TokenInfo};
 
 //********** Storage Keys **********//
 
@@ -24,6 +24,7 @@ pub enum BootstrapKey {
     Config(u32),
     Data(u32),
     Claim(u32),
+    Refund(u32),
     Deposit(DepositKey),
 }
 
@@ -188,32 +189,35 @@ pub fn set_bootstrap_data(e: &Env, id: u32, bootstrap_data: &BootstrapData) {
 }
 
 /// Get a boostrap deposit for a user
-pub fn get_deposit(e: &Env, id: u32, user: &Address) -> i128 {
+pub fn get_deposit(e: &Env, id: u32, user: &Address) -> DepositData {
     let key = BootstrapKey::Deposit(DepositKey {
         id,
         user: user.clone(),
     });
-    let result = e.storage().persistent().get::<BootstrapKey, i128>(&key);
+    let result = e
+        .storage()
+        .persistent()
+        .get::<BootstrapKey, DepositData>(&key);
     match result {
-        Some(value) => {
+        Some(data) => {
             e.storage()
                 .persistent()
                 .extend_ttl(&key, LEDGER_THRESHOLD_USER, LEDGER_BUMP_USER);
-            value
+            data
         }
-        None => 0,
+        None => DepositData::default(),
     }
 }
 
 /// Set a boostrap deposit for a user
-pub fn set_deposit(e: &Env, id: u32, user: &Address, amount: i128) {
+pub fn set_deposit(e: &Env, id: u32, user: &Address, data: DepositData) {
     let key = BootstrapKey::Deposit(DepositKey {
         id,
         user: user.clone(),
     });
     e.storage()
         .persistent()
-        .set::<BootstrapKey, i128>(&key, &amount);
+        .set::<BootstrapKey, DepositData>(&key, &data);
     e.storage()
         .persistent()
         .extend_ttl(&key, LEDGER_THRESHOLD_USER, LEDGER_BUMP_USER);
@@ -228,6 +232,23 @@ pub fn get_claimed(e: &Env, id: u32) -> bool {
 /// Set if the bootstrapped claimed their backstop token balance
 pub fn set_claimed(e: &Env, id: u32) {
     let key = BootstrapKey::Claim(id);
+    e.storage()
+        .persistent()
+        .set::<BootstrapKey, bool>(&key, &true);
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, LEDGER_THRESHOLD_USER, LEDGER_BUMP_USER);
+}
+
+/// Get if the bootstrapper was refunded their bootstrap token balance
+pub fn get_refunded(e: &Env, id: u32) -> bool {
+    let key = BootstrapKey::Refund(id);
+    e.storage().persistent().has::<BootstrapKey>(&key)
+}
+
+/// Set if the bootstrapped refunded their bootstrap token balance
+pub fn set_refunded(e: &Env, id: u32) {
+    let key = BootstrapKey::Refund(id);
     e.storage()
         .persistent()
         .set::<BootstrapKey, bool>(&key, &true);
