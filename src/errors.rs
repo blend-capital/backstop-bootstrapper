@@ -25,4 +25,5 @@ pub enum BackstopBootstrapperError {
     AlreadyClaimedError = 105,
     InsufficientDepositError = 106,
     ReceivedNoBackstopTokens = 107,
+    AlreadyRefundedError = 108,
 }

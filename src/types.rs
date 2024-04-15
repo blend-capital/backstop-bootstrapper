@@ -46,3 +46,20 @@ pub struct BootstrapData {
     /// The amount of pair tokens held by the contract for this bootstrap
     pub pair_amount: i128,
 }
+
+#[derive(Clone)]
+#[contracttype]
+pub struct DepositData {
+    pub amount: i128,
+    pub claimed: bool,
+    pub refunded: bool,
+}
+impl Default for DepositData {
+    fn default() -> Self {
+        DepositData {
+            amount: 0,
+            claimed: false,
+            refunded: false,
+        }
+    }
+}
