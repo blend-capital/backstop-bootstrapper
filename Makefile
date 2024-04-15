@@ -4,7 +4,7 @@ test: build
 	cargo test --all --tests
 
 build:
-	cargo rustc --manifest-path=backstop_bootstrapper/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
+	cargo rustc --manifest-path=Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release
 
 	mkdir -p target/wasm32-unknown-unknown/optimized
 	soroban contract optimize \
