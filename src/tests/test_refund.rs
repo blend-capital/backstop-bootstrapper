@@ -1,7 +1,5 @@
 #![cfg(test)]
 
-use std::println;
-
 use crate::constants::{MAX_DUST_AMOUNT, SCALAR_7};
 use crate::storage::ONE_DAY_LEDGERS;
 use crate::testutils::{self, assert_approx_eq_abs, EnvTestUtils};
