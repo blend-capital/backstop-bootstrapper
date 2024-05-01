@@ -10,7 +10,7 @@ use crate::BackstopBootstrapperClient;
 use blend_contract_sdk::testutils::BlendFixture;
 use soroban_sdk::testutils::{Address as _, BytesN as _};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
-use soroban_sdk::{Address, BytesN, Env, Error, Symbol};
+use soroban_sdk::{Address, BytesN, Env, Error, String};
 
 #[test]
 fn test_close_validates_status() {
@@ -31,7 +31,7 @@ fn test_close_validates_status() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,
@@ -85,7 +85,7 @@ fn test_close_blnd_bootstrap_single_sided_blnd() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,
@@ -166,7 +166,7 @@ fn test_close_usdc_bootstrap_single_sided_usdc() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,
