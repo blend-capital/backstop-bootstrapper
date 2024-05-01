@@ -8,7 +8,7 @@ use crate::BackstopBootstrapperClient;
 use blend_contract_sdk::testutils::BlendFixture;
 use soroban_sdk::testutils::{Address as _, BytesN as _};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
-use soroban_sdk::{Address, BytesN, Env, Error, Symbol};
+use soroban_sdk::{Address, BytesN, Env, Error, String};
 
 #[test]
 fn test_join_exit() {
@@ -32,7 +32,7 @@ fn test_join_exit() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,

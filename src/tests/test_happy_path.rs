@@ -11,7 +11,7 @@ use blend_contract_sdk::testutils::BlendFixture;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::{Address as _, BytesN as _, Events, MockAuth, MockAuthInvoke};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
-use soroban_sdk::{vec, Address, BytesN, Env, IntoVal, Symbol, Val};
+use soroban_sdk::{vec, Address, BytesN, Env, IntoVal, String, Symbol, Val};
 
 #[test]
 fn test_happy_path() {
@@ -33,7 +33,7 @@ fn test_happy_path() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.mock_all_auths().deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,

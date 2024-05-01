@@ -103,9 +103,9 @@ checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
 name = "blend-contract-sdk"
-version = "0.1.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "916a40c6bb2abd0a71b64c4dac638694bd02fe32e863c6b6dc1cac40fdfd7199"
+checksum = "464c18021476f52c2fe2dbf2c883a01493981d549155090e6e6cf474269e911b"
 dependencies = [
  "soroban-sdk",
 ]

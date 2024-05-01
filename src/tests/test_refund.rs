@@ -9,7 +9,7 @@ use blend_contract_sdk::testutils::BlendFixture;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::{Address as _, BytesN as _, MockAuth, MockAuthInvoke};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
-use soroban_sdk::{vec, Address, BytesN, Env, Error, IntoVal, Symbol};
+use soroban_sdk::{vec, Address, BytesN, Env, Error, IntoVal, String};
 
 // @dev: refund is omitted from the happy path test. Test auth.
 #[test]
@@ -32,7 +32,7 @@ fn test_refund_blnd_bootstrap_after_ledger_and_auth() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.mock_all_auths().deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,
@@ -138,7 +138,7 @@ fn test_refund_pair_after_partial_close() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,
@@ -243,7 +243,7 @@ fn test_refund_bootstrap_after_partial_close() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,
@@ -350,7 +350,7 @@ fn test_refund_usdc_bootstrap_invalid_pair_amount_and_multiple_joiners() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,

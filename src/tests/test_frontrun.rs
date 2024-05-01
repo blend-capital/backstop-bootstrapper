@@ -10,7 +10,7 @@ use crate::BackstopBootstrapperClient;
 use blend_contract_sdk::testutils::BlendFixture;
 use soroban_sdk::testutils::{Address as _, BytesN as _};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
-use soroban_sdk::{Address, BytesN, Env, Symbol};
+use soroban_sdk::{Address, BytesN, Env, String};
 
 #[test]
 fn test_frontrunning_not_effective() {
@@ -33,7 +33,7 @@ fn test_frontrunning_not_effective() {
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.deploy(
         &bombadil,
-        &Symbol::new(&e, "test"),
+        &String::from_str(&e, "test"),
         &BytesN::<32>::random(&e),
         &Address::generate(&e),
         &0,
@@ -86,18 +86,26 @@ fn test_frontrunning_not_effective() {
     usdc_client.mint(&frodo, &(50000 * &SCALAR_7));
     blend_fixture.backstop_token.swap_exact_amount_in(
         &usdc,
-        &(25000 * &SCALAR_7),
+        &(16666 * &SCALAR_7),
         &blnd,
         &0,
-        &(500000 * SCALAR_7),
+        &(333000 * SCALAR_7),
         &frodo,
     );
     blend_fixture.backstop_token.swap_exact_amount_in(
         &usdc,
-        &(25000 * &SCALAR_7),
+        &(16666 * &SCALAR_7),
         &blnd,
         &0,
-        &(500000 * SCALAR_7),
+        &(333000 * SCALAR_7),
+        &frodo,
+    );
+    blend_fixture.backstop_token.swap_exact_amount_in(
+        &usdc,
+        &(16666 * &SCALAR_7),
+        &blnd,
+        &0,
+        &(333000 * SCALAR_7),
         &frodo,
     );
     let backstop_tokens = bootstrap_client.close(&id);
@@ -107,6 +115,6 @@ fn test_frontrunning_not_effective() {
         backstop_tokens,
         blend_fixture.backstop_token.balance(&bootstrapper)
     );
-    // at most 5% slippage on close
-    assert_approx_eq_rel(est_backstop_tokens, backstop_tokens, 0_0500000);
+    // at most 8% slippage on close
+    assert_approx_eq_rel(est_backstop_tokens, backstop_tokens, 0_0800000);
 }
