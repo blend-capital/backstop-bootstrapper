@@ -469,6 +469,10 @@ fn test_refund_twice() {
     assert_eq!(0, blnd_token.balance(&bootstrapper));
     assert_eq!(bootstrap_amount, blnd_token.balance(&frodo));
 
+    // Mint bootstrapper tokens so a double refund can be attempted
+    blnd_client
+        .mock_all_auths()
+        .mint(&bootstrapper, &bootstrap_amount);
     let result = bootstrap_client.mock_all_auths().try_refund(&frodo, &id);
     assert_eq!(result.err(), Some(Ok(Error::from_contract_error(108))));
 
@@ -477,6 +481,10 @@ fn test_refund_twice() {
     assert_eq!(0, usdc_token.balance(&bootstrapper));
     assert_eq!(join_amount, usdc_token.balance(&samwise));
 
+    // Mint bootstrapper tokens so a double refund can be attempted
+    usdc_client
+        .mock_all_auths()
+        .mint(&bootstrapper, &join_amount);
     let result = bootstrap_client.mock_all_auths().try_refund(&samwise, &id);
     assert_eq!(result.err(), Some(Ok(Error::from_contract_error(108))));
 }

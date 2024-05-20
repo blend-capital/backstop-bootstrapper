@@ -11,7 +11,7 @@ use blend_contract_sdk::testutils::BlendFixture;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::{Address as _, BytesN as _};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
-use soroban_sdk::{Address, BytesN, Env, Error, String};
+use soroban_sdk::{vec, Address, BytesN, Env, Error, String};
 
 #[test]
 fn test_claim_multiple_joiners() {
@@ -231,6 +231,15 @@ fn test_claim_twice() {
 
     e.jump(3 * ONE_DAY_LEDGERS + 1);
     let backstop_tokens = bootstrap_client.close(&id);
+
+    // Mint bootstrapper backstop tokens so a double claim can be attempted
+    usdc_client.mint(&bootstrapper, &(10000 * SCALAR_7));
+    blnd_client.mint(&bootstrapper, &(3_300_000 * SCALAR_7));
+    blend_fixture.backstop_token.join_pool(
+        &backstop_tokens,
+        &vec![&e, (3_300_000 * SCALAR_7), (10000 * SCALAR_7)],
+        &bootstrapper,
+    );
 
     let est_frodo = backstop_tokens
         .fixed_mul_floor(0_8000000, SCALAR_7)
