@@ -411,3 +411,80 @@ fn test_refund_usdc_bootstrap_invalid_pair_amount_and_multiple_joiners() {
     assert_eq!(bootstrap_amount, usdc_token.balance(&frodo));
     assert_eq!(refunded_frodo, bootstrap_amount);
 }
+
+#[test]
+fn test_refund_twice() {
+    let e = Env::default();
+    e.budget().reset_unlimited();
+    e.set_default_info();
+
+    let bombadil = Address::generate(&e);
+    let frodo = Address::generate(&e);
+    let samwise = Address::generate(&e);
+
+    let blnd = e.register_stellar_asset_contract(bombadil.clone());
+    let usdc = e.register_stellar_asset_contract(bombadil.clone());
+    let blnd_client = StellarAssetClient::new(&e, &blnd);
+    let blnd_token = TokenClient::new(&e, &blnd);
+    let usdc_client = StellarAssetClient::new(&e, &usdc);
+    let usdc_token = TokenClient::new(&e, &usdc);
+
+    let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
+    let pool_address = blend_fixture.pool_factory.mock_all_auths().deploy(
+        &bombadil,
+        &String::from_str(&e, "test"),
+        &BytesN::<32>::random(&e),
+        &Address::generate(&e),
+        &0,
+        &2,
+    );
+    let bootstrapper = testutils::create_bootstrapper(&e, &blend_fixture);
+    let bootstrap_client = BackstopBootstrapperClient::new(&e, &bootstrapper);
+
+    let bootstrap_amount = 1000 * SCALAR_7;
+    blnd_client.mock_all_auths().mint(&frodo, &bootstrap_amount);
+    let config = BootstrapConfig {
+        pair_min: 100 * SCALAR_7,
+        close_ledger: e.ledger().sequence() + ONE_DAY_LEDGERS,
+        bootstrapper: frodo.clone(),
+        pool: pool_address.clone(),
+        amount: bootstrap_amount,
+        token_index: 0,
+    };
+    let id = bootstrap_client.mock_all_auths().bootstrap(&config);
+    assert_eq!(bootstrap_amount, blnd_token.balance(&bootstrapper));
+    assert_eq!(0, blnd_token.balance(&frodo));
+
+    let join_amount = 50 * SCALAR_7;
+    usdc_client.mock_all_auths().mint(&samwise, &join_amount);
+    bootstrap_client
+        .mock_all_auths()
+        .join(&samwise, &id, &join_amount);
+    assert_eq!(join_amount, usdc_token.balance(&bootstrapper));
+    assert_eq!(0, usdc_token.balance(&samwise));
+
+    e.jump(ONE_DAY_LEDGERS + 1);
+    let refunded = bootstrap_client.mock_all_auths().refund(&frodo, &id);
+    assert_eq!(bootstrap_amount, refunded);
+    assert_eq!(0, blnd_token.balance(&bootstrapper));
+    assert_eq!(bootstrap_amount, blnd_token.balance(&frodo));
+
+    // Mint bootstrapper tokens so a double refund can be attempted
+    blnd_client
+        .mock_all_auths()
+        .mint(&bootstrapper, &bootstrap_amount);
+    let result = bootstrap_client.mock_all_auths().try_refund(&frodo, &id);
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(108))));
+
+    let refunded = bootstrap_client.mock_all_auths().refund(&samwise, &id);
+    assert_eq!(join_amount, refunded);
+    assert_eq!(0, usdc_token.balance(&bootstrapper));
+    assert_eq!(join_amount, usdc_token.balance(&samwise));
+
+    // Mint bootstrapper tokens so a double refund can be attempted
+    usdc_client
+        .mock_all_auths()
+        .mint(&bootstrapper, &join_amount);
+    let result = bootstrap_client.mock_all_auths().try_refund(&samwise, &id);
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(108))));
+}

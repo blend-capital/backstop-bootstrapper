@@ -11,7 +11,7 @@ use blend_contract_sdk::testutils::BlendFixture;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::testutils::{Address as _, BytesN as _};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
-use soroban_sdk::{Address, BytesN, Env, String};
+use soroban_sdk::{vec, Address, BytesN, Env, Error, String};
 
 #[test]
 fn test_claim_multiple_joiners() {
@@ -176,4 +176,101 @@ fn test_claim_multiple_joiners() {
         blend_fixture.backstop_token.balance(&bootstrapper),
         MAX_DUST_AMOUNT,
     );
+}
+
+#[test]
+fn test_claim_twice() {
+    let e = Env::default();
+    e.budget().reset_unlimited();
+    e.mock_all_auths();
+    e.set_default_info();
+
+    let bombadil = Address::generate(&e);
+    let frodo = Address::generate(&e);
+    let samwise = Address::generate(&e);
+
+    let blnd = e.register_stellar_asset_contract(bombadil.clone());
+    let usdc = e.register_stellar_asset_contract(bombadil.clone());
+    let blnd_client = StellarAssetClient::new(&e, &blnd);
+    let blnd_token = TokenClient::new(&e, &blnd);
+    let usdc_client = StellarAssetClient::new(&e, &usdc);
+    let usdc_token = TokenClient::new(&e, &usdc);
+
+    let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
+    let pool_address = blend_fixture.pool_factory.deploy(
+        &bombadil,
+        &String::from_str(&e, "test"),
+        &BytesN::<32>::random(&e),
+        &Address::generate(&e),
+        &0,
+        &2,
+    );
+
+    let bootstrapper = testutils::create_bootstrapper(&e, &blend_fixture);
+    let bootstrap_client = BackstopBootstrapperClient::new(&e, &bootstrapper);
+
+    // create bootstrap
+    let bootstrap_amount = 100_000 * SCALAR_7;
+    blnd_client.mint(&frodo, &bootstrap_amount);
+    let config = BootstrapConfig {
+        pair_min: 2000 * SCALAR_7,
+        close_ledger: e.ledger().sequence() + 3 * ONE_DAY_LEDGERS,
+        bootstrapper: frodo.clone(),
+        pool: pool_address.clone(),
+        amount: bootstrap_amount,
+        token_index: 0,
+    };
+    let id = bootstrap_client.bootstrap(&config);
+    assert_eq!(bootstrap_amount, blnd_token.balance(&bootstrapper));
+    assert_eq!(0, blnd_token.balance(&frodo));
+
+    // join samwise 60% of total
+    let join_amount_samwise = 2000 * SCALAR_7;
+    usdc_client.mint(&samwise, &join_amount_samwise);
+    bootstrap_client.join(&samwise, &id, &join_amount_samwise);
+
+    e.jump(3 * ONE_DAY_LEDGERS + 1);
+    let backstop_tokens = bootstrap_client.close(&id);
+
+    // Mint bootstrapper backstop tokens so a double claim can be attempted
+    usdc_client.mint(&bootstrapper, &(10000 * SCALAR_7));
+    blnd_client.mint(&bootstrapper, &(3_300_000 * SCALAR_7));
+    blend_fixture.backstop_token.join_pool(
+        &backstop_tokens,
+        &vec![&e, (3_300_000 * SCALAR_7), (10000 * SCALAR_7)],
+        &bootstrapper,
+    );
+
+    let est_frodo = backstop_tokens
+        .fixed_mul_floor(0_8000000, SCALAR_7)
+        .unwrap();
+    bootstrap_client.claim(&frodo, &id);
+    assert_approx_eq_abs(
+        est_frodo,
+        blend_fixture
+            .backstop
+            .user_balance(&pool_address, &frodo)
+            .shares,
+        MAX_DUST_AMOUNT,
+    );
+
+    let result = bootstrap_client.try_claim(&frodo, &id);
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(105))));
+
+    let est_samwise = backstop_tokens
+        .fixed_mul_floor(0_2000000, SCALAR_7)
+        .unwrap()
+        .fixed_mul_floor(1_0000000, SCALAR_7)
+        .unwrap();
+    bootstrap_client.claim(&samwise, &id);
+    assert_approx_eq_abs(
+        est_samwise,
+        blend_fixture
+            .backstop
+            .user_balance(&pool_address, &samwise)
+            .shares,
+        MAX_DUST_AMOUNT,
+    );
+    let result = bootstrap_client.try_claim(&samwise, &id);
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(105))));
 }

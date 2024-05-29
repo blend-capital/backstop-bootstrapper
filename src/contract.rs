@@ -341,6 +341,7 @@ impl BackstopBootstrapper {
                 .total_backstop_tokens
                 .fixed_mul_floor(bootstrap_info.weight as i128, SCALAR_7)
                 .unwrap_optimized();
+            storage::set_claimed(&e, id);
         } else {
             let mut deposit_data = storage::get_deposit(&e, bootstrap.id, &from);
             assert_with_error!(
