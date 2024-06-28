@@ -62,6 +62,12 @@ fn test_close_validates_status() {
 
     let result = bootstrap_client.try_close(&id);
     assert_eq!(result.err(), Some(Ok(Error::from_contract_error(104))));
+
+    // verify close cannot be run once cancelled
+    e.jump(14 * ONE_DAY_LEDGERS + 2);
+
+    let result = bootstrap_client.try_close(&id);
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(104))));
 }
 
 #[test]
