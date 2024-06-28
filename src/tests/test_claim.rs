@@ -194,7 +194,6 @@ fn test_claim_twice() {
     let blnd_client = StellarAssetClient::new(&e, &blnd);
     let blnd_token = TokenClient::new(&e, &blnd);
     let usdc_client = StellarAssetClient::new(&e, &usdc);
-    let usdc_token = TokenClient::new(&e, &usdc);
 
     let blend_fixture = BlendFixture::deploy(&e, &bombadil, &blnd, &usdc);
     let pool_address = blend_fixture.pool_factory.deploy(

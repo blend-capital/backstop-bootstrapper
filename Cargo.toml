@@ -1,6 +1,6 @@
 [package]
 name = "backstop_bootstrapper"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Script3 Ltd. <gm@script3.io>"]
 license = "AGPL-3.0"
 edition = "2021"

@@ -144,6 +144,11 @@ fn test_bootstrap_validates_config() {
     let result = bootstrap_client.try_bootstrap(&config_close_long);
     assert_eq!(result.err(), Some(Ok(Error::from_contract_error(100))));
 
+    let mut config_close_pre_ledger = config.clone();
+    config_close_pre_ledger.close_ledger = e.ledger().sequence() - 1;
+    let result = bootstrap_client.try_bootstrap(&config_close_long);
+    assert_eq!(result.err(), Some(Ok(Error::from_contract_error(100))));
+
     // pool
     let mut config_pool = config.clone();
     config_pool.pool = Address::generate(&e);
